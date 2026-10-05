@@ -1,0 +1,3 @@
+Pillow>=10,<13
+ttkbootstrap==2.2.3
+tkinter-icons[material]==5.1.0

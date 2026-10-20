@@ -7,6 +7,13 @@ from tkinter_icons import MaterialIcon
 
 from plan import PlanView
 from scheme import SchemeView
+from toolbar_symbols import (
+    TILE as TOOL_TILE_SIZE,
+    draw_plan_toolbar_symbol,
+    draw_toolbar_symbol,
+    supports_plan_toolbar_symbol,
+    supports_toolbar_symbol,
+)
 from ui_theme import palette
 
 FONT = "Segoe UI"
@@ -132,6 +139,7 @@ class App:
         self._tool_buttons = {}
         self._ribbon_tiles = {}
         self._active_tool = None
+        self._toolbar_symbol_color = None
         self._selection_mode = True
         self._history = []
         self._history_index = -1
@@ -220,7 +228,6 @@ class App:
         self._configure_theme()
         self._theme_button.configure(image=self._icon("sun-fill" if self.theme_name == "dark" else "moon-stars-fill", 18, self.colors["accent"]), text="")
         self._menu()
-        self._restyle_ribbon_group(self._edit_group)
         if hasattr(self, "_panes"):
             self._panes.configure(bg=self.colors["divider"])
         if hasattr(self, "_palette_canvas"):
@@ -235,11 +242,12 @@ class App:
         if hasattr(self, "_menu_host"):
             self._menu_host.destroy()
         self.root.config(menu="")
-        bar = ttk.Frame(self.root, style="Toolbar.TFrame", padding=(8, 3))
+        bar = ttk.Frame(self.root, style="Toolbar.TFrame", padding=(7, 0), height=30)
         if hasattr(self, "_top_toolbar"):
             bar.pack(fill=tk.X, before=self._top_toolbar)
         else:
             bar.pack(fill=tk.X)
+        bar.pack_propagate(False)
         self._menu_host = bar
         menu_style = {
             "bg": c["surface"], "fg": c["text"], "activebackground": c["accent_soft"],
@@ -280,6 +288,14 @@ class App:
             button = self._icon_button(bar, icon, self.colors["accent"], "Quick.TButton", command, tip)
             button.pack(side=tk.LEFT, padx=1)
         ttk.Separator(bar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=6, pady=2)
+        for icon, command, tip, style, color in [
+            ("trash3", self._delete, "Удалить (Delete)", "Danger.TButton", self.colors["danger"]),
+            ("bezier2", self._connect, "Соединить (C)", "Ribbon.TButton", self.colors["accent"]),
+            ("arrow-clockwise", self._rotate, "Повернуть (R)", "Ribbon.TButton", self.colors["accent"]),
+        ]:
+            button = self._icon_button(bar, icon, color, style, command, tip)
+            button.pack(side=tk.LEFT, padx=1)
+        ttk.Separator(bar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=6, pady=2)
         for icon, command, tip in [
             ("grid-3x3-gap", lambda: self._grid(not self.plan.show_grid), "Показать или скрыть сетку (G)"),
             ("aspect-ratio", self._zoom_reset, "Показать участок 200 × 150 м (1)"),
@@ -290,7 +306,7 @@ class App:
         cursor = self._icon("cursor-fill", 15, self.colors["accent_text"])
         self._select_button = ttk.Button(bar, image=cursor, text="", style="ActiveTab.TButton", width=3, command=self._select_mode)
         self._select_button.image = cursor
-        self._select_button.pack(side=tk.LEFT, padx=(5, 1))
+        self._select_button.pack(side=tk.LEFT, padx=(3, 1))
         self._tooltip(self._select_button, "Выбор и перемещение объектов (V)")
         theme_name = "sun-fill" if self.theme_name == "dark" else "moon-stars-fill"
         self._theme_button = self._icon_button(
@@ -328,25 +344,59 @@ class App:
         self._tooltip(button, tip)
         return button
 
+    def set_toolbar_symbol_color(self, color=None):
+        """Set one shared color for all inactive vector toolbar previews.
+
+        ``None`` restores the neutral color appropriate for the active theme.
+        This small public entry point leaves room for a future palette setting
+        without duplicating a color on every individual icon.
+        """
+        self._toolbar_symbol_color = color
+        self._refresh_ribbon_tiles()
+
+    def set_scheme_symbol_color(self, color=None):
+        """Compatibility alias for callers that color schematic UGO only."""
+        self.set_toolbar_symbol_color(color)
+
+    def _toolbar_symbol_ink(self, active=False):
+        if active:
+            return self.colors["accent"]
+        return self._toolbar_symbol_color or self.colors["symbol"]
+
+    def _paint_vector_symbol_tile(self, tile, name, active=False, hover=False):
+        tile.delete("ugo")
+        tile.delete("ugo-state")
+        ink = self._toolbar_symbol_ink(active or hover)
+        if self.view == "scheme":
+            draw_toolbar_symbol(tile, name, ink, "ugo")
+        else:
+            draw_plan_toolbar_symbol(tile, name, ink, "ugo")
+        if active:
+            tile.create_line(
+                6, TOOL_TILE_SIZE - 2, 24, TOOL_TILE_SIZE - 2,
+                fill=self.colors["accent"], width=2,
+                capstyle=tk.ROUND, tags="ugo-state",
+            )
+
     def _toolbar(self):
-        bar = ttk.Frame(self.root, style="Toolbar.TFrame", padding=(8, 3), height=58)
+        # One contextual ribbon row: navigation, commands and the tools of the
+        # selected workspace sit together instead of spending a third line.
+        bar = ttk.Frame(self.root, style="Toolbar.TFrame", padding=(7, 1), height=56)
         bar.pack(fill=tk.X)
         bar.pack_propagate(False)
         self._top_toolbar = bar
         self._mode_buttons = {}
+        mode_switcher = ttk.Frame(bar, style="Toolbar.TFrame", width=88)
+        mode_switcher.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 3))
+        mode_switcher.pack_propagate(False)
         for key, text, command, tip in [
             ("plan", "План", self._show_plan, "План площадки"),
             ("scheme", "Схема", self._show_loose_scheme, "Схема объекта"),
         ]:
-            button = ttk.Button(bar, text=text, style="Tab.TButton", width=11, command=command)
-            button.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 2))
+            button = ttk.Button(mode_switcher, text=text, style="Tab.TButton", width=9, command=command)
+            button.pack(fill=tk.BOTH, expand=True, pady=1)
             self._tooltip(button, tip)
             self._mode_buttons[key] = button
-        ttk.Separator(bar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=2)
-        self._edit_group = self._ribbon_group(bar, "Правка", [])
-        for icon, command, tip, style, color in [("bezier2", self._connect, "Соединить (C)", "Ribbon.TButton", self.colors["accent"]), ("arrow-clockwise", self._rotate, "Повернуть (R)", "Ribbon.TButton", self.colors["accent"]), ("trash3", self._delete, "Удалить (Delete)", "Danger.TButton", self.colors["danger"])]:
-            button = self._icon_button(self._edit_group._tools, icon, color, style, command, tip)
-            button.pack(side=tk.LEFT, padx=1)
         ttk.Separator(bar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=2)
         self._ribbon_host = ttk.Frame(bar, style="Toolbar.TFrame")
         self._ribbon_host.pack(side=tk.LEFT, fill=tk.Y)
@@ -381,71 +431,51 @@ class App:
     def _tool_tile(self, parent, name, command, is_link=False):
         c = self.colors
         active = self._active_tool == name
+        is_vector_symbol = (
+            self.view == "scheme" and supports_toolbar_symbol(name)
+        ) or (
+            self.view == "plan" and supports_plan_toolbar_symbol(name)
+        )
         tile = tk.Canvas(
-            parent, width=29, height=29, bg=c["accent_soft"] if active else c["surface"],
-            highlightthickness=1,
+            parent, width=TOOL_TILE_SIZE, height=TOOL_TILE_SIZE, bg=c["surface"],
+            highlightthickness=0 if is_vector_symbol else 1,
             highlightbackground=c["accent"] if active else c["surface"],
             highlightcolor=c["accent"], cursor="hand2", takefocus=1,
         )
         tile.pack(side=tk.LEFT, padx=2, pady=1)
-        ink = c["accent"] if is_link else c["text"]
-        tile.create_rectangle(
-            0, 0, 29, 29,
-            fill=c["accent_soft"] if active else c["surface"],
-            outline="", tags="tile_bg",
-        )
-        # Small schematic pictograms: intentionally compact, with full name in tooltip.
-        material_name = MATERIAL_TOOL_ICONS.get(name)
-        if material_name:
-            material_icon = MaterialIcon(material_name, size=20, color=ink)
-            tile.create_image(14, 14, image=material_icon.image)
-            tile._material_icon = material_icon
-            self._icon_refs.append(material_icon)
-        elif is_link or name in ("КЛ", "ВЛ", "Газопровод", "Технологическая связь", "Прочая связь"):
-            tile.create_line(5, 23, 23, 5, fill=ink, width=2, dash=(3, 2) if name == "ВЛ" else ())
-        elif "Трансформатор" in name:
-            tile.create_oval(4, 7, 14, 20, outline=ink, width=2)
-            tile.create_oval(13, 7, 23, 20, outline=ink, width=2)
-        elif name in ("Выключатель", "Автоматический выключатель 1P", "Автоматический выключатель 2P", "Автоматический выключатель 3P", "Автоматический выключатель 4P", "Секционный автоматический выключатель", "Рубильник", "Контактор", "УЗО", "Дифференциальный автомат"):
-            tile.create_line(4, 11, 10, 11, fill=ink, width=2)
-            tile.create_line(10, 11, 19, 5, fill=ink, width=2)
-            tile.create_line(19, 11, 24, 11, fill=ink, width=2)
-            marker = {
-                "Автоматический выключатель 1P": "1P",
-                "Автоматический выключатель 2P": "2P",
-                "Автоматический выключатель 3P": "3P",
-                "Автоматический выключатель 4P": "4P",
-                "Секционный автоматический выключатель": "СЕК",
-                "Рубильник": "Р",
-                "Контактор": "К",
-                "УЗО": "УЗО",
-                "Дифференциальный автомат": "ДИФ",
-            }.get(name, "")
-            if marker:
-                tile.create_text(14, 22, text=marker, fill=ink, font=(FONT, 6, "bold"))
-        elif name in ("Секция шин", "Фазная шина", "Шина N", "Шина PE", "Шина PEN"):
-            tile.create_line(4, 10, 24, 10, fill=ink, width=4)
-            marker = {"Фазная шина": "L", "Шина N": "N", "Шина PE": "PE", "Шина PEN": "PEN"}.get(name, "")
-            if marker:
-                tile.create_text(14, 22, text=marker, fill=ink, font=(FONT, 6, "bold"))
-        elif name in ("Генератор", "ГПУ", "Энергосистема", "Внешняя энергосистема", "Собственная электростанция", "Мини-ТЭЦ"):
-            tile.create_oval(5, 5, 23, 23, outline=ink, width=2)
-            tile.create_text(14, 14, text="~", fill=ink, font=(FONT, 14, "bold"))
-        elif "Нагрузка" in name:
-            tile.create_polygon(14, 4, 24, 23, 4, 23, fill="", outline=ink, width=2)
-        elif name in ("ГПП", "ТП", "РП", "ГРЩ", "ЩСУ", "ЩО", "ШР"):
-            tile.create_rectangle(5, 4, 23, 23, outline=ink, width=2)
-            tile.create_text(14, 14, text=name, fill=ink, font=(FONT, 6, "bold"))
+        tile._vector_symbol = is_vector_symbol
+        if is_vector_symbol:
+            self._paint_vector_symbol_tile(tile, name, active=active)
         else:
-            tile.create_rectangle(5, 6, 23, 22, outline=ink, width=2)
-            tile.create_line(9, 11, 20, 11, fill=ink)
+            ink = c["accent"] if is_link else c["text"]
+            tile.create_rectangle(
+                0, 0, 29, 29,
+                fill=c["accent_soft"] if active else c["surface"],
+                outline="", tags="tile_bg",
+            )
+            material_name = MATERIAL_TOOL_ICONS.get(name)
+            if material_name:
+                material_icon = MaterialIcon(material_name, size=20, color=ink)
+                tile.create_image(14, 14, image=material_icon.image)
+                tile._material_icon = material_icon
+                self._icon_refs.append(material_icon)
+            elif is_link or name in ("КЛ", "ВЛ", "Газопровод", "Технологическая связь", "Прочая связь"):
+                tile.create_line(5, 23, 23, 5, fill=ink, width=2, dash=(3, 2) if name == "ВЛ" else ())
+            else:
+                tile.create_rectangle(5, 6, 23, 22, outline=ink, width=2)
+                tile.create_line(9, 11, 20, 11, fill=ink)
+
         def enter(_event):
-            if self._active_tool != name:
+            if getattr(tile, "_vector_symbol", False):
+                self._paint_vector_symbol_tile(tile, name, active=active, hover=True)
+            elif self._active_tool != name:
                 tile.configure(bg=c["surface_alt"], highlightbackground=c["border"])
                 tile.itemconfigure("tile_bg", fill=c["surface_alt"])
 
         def leave(_event):
-            if self._active_tool != name:
+            if getattr(tile, "_vector_symbol", False):
+                self._paint_vector_symbol_tile(tile, name, active=active)
+            elif self._active_tool != name:
                 tile.configure(bg=c["surface"], highlightbackground=c["surface"])
                 tile.itemconfigure("tile_bg", fill=c["surface"])
 
@@ -463,6 +493,9 @@ class App:
             if not tile.winfo_exists():
                 continue
             active = self._active_tool == name
+            if getattr(tile, "_vector_symbol", False):
+                self._paint_vector_symbol_tile(tile, name, active=active)
+                continue
             background = c["accent_soft"] if active else c["surface"]
             tile.configure(
                 bg=background,
@@ -493,7 +526,7 @@ class App:
                     [(n, lambda x=n: self._pick_tool(x, False), n == "Кабельная линия 0,4 кВ") for n in names],
                 )
         else:
-            self._ribbon_group(self._ribbon_host, "Объекты", [(n, lambda x=n: self._pick_tool(x, False), False) for n in PLAN_GROUPS[0][1][:4]])
+            self._ribbon_group(self._ribbon_host, "Объекты", [(n, lambda x=n: self._pick_tool(x, False), False) for n in PLAN_GROUPS[0][1]])
             self._ribbon_group(self._ribbon_host, "Энергетика", [(n, lambda x=n: self._pick_tool(x, False), False) for n in PLAN_GROUPS[1][1]])
             self._ribbon_group(self._ribbon_host, "Связи", [(n, lambda x=n: self._pick_tool(x, True), True) for n in PLAN_GROUPS[3][1]])
         if self.view == "scheme" and self._inside is not None:

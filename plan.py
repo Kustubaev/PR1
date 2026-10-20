@@ -2,9 +2,8 @@ import tkinter as tk
 import tkinter.font as tkfont
 import math
 
-from ui_theme import LIGHT
+from ui_theme import LIGHT, plan_link_styles
 
-SELECT = "#5780B2"
 MARGIN = 36
 
 
@@ -29,15 +28,12 @@ class Tie:
         self.kind = kind
 
 
-FILL = {
-    "Энергосистема": "#e2e8f0",
-    "Точка подключения ПГ": "#fef3c7",
-}
 class PlanView(tk.Canvas):
     def __init__(self, master, on_select, on_status, on_open=None, on_change=None, on_context=None):
         super().__init__(master, bg=LIGHT["canvas"], highlightthickness=0)
         self.colors = LIGHT
-        self._line_styles = {}
+        self._line_styles = plan_link_styles(LIGHT)
+        self._block_fills = {"Точка подключения ПГ": LIGHT["site_marker"]}
         self.on_select = on_select
         self.on_status = on_status
         self.on_open = on_open
@@ -78,13 +74,8 @@ class PlanView(tk.Canvas):
 
     def set_theme(self, colors):
         self.colors = colors
-        self._line_styles = {
-            "КЛ": (colors["accent"], ()),
-            "ВЛ": (colors["muted"], (6, 3)),
-            "Газопровод": (colors["text"], (2, 2)),
-            "Технологическая связь": (colors["muted"], (4, 2)),
-            "Прочая связь": (colors["border"], (1, 2)),
-        }
+        self._line_styles = plan_link_styles(colors)
+        self._block_fills = {"Точка подключения ПГ": colors["site_marker"]}
         self.configure(bg=colors["canvas"])
         self.redraw()
 
@@ -571,9 +562,7 @@ class PlanView(tk.Canvas):
         x1, y1 = self._to_screen(b.x, b.y)
         x2, y2 = self._to_screen(b.x + b.w, b.y + b.h)
         on = b.id in self.selected_ids or b.id == self._from
-        fill = self.colors["accent_soft"] if on else (
-            self.colors["surface_alt"] if b.kind == "Энергосистема" else FILL.get(b.kind, self.colors["surface"])
-        )
+        fill = self.colors["accent_soft"] if on else self._block_fills.get(b.kind, self.colors["surface"])
         outline = self.colors["selection"] if on else self.colors["muted"]
         self.create_rectangle(x1, y1, x2, y2, fill=fill, outline=outline, width=2)
         font_spec = ("Segoe UI", self._label_font_size())

@@ -7,6 +7,7 @@ from tkinter_icons import MaterialIcon
 
 from plan import PlanView
 from scheme import SchemeView
+from ugo_model import PLAN_TOOL_GROUPS, SCHEME_TOOL_GROUPS
 from toolbar_symbols import (
     TILE as TOOL_TILE_SIZE,
     draw_plan_toolbar_symbol,
@@ -17,112 +18,6 @@ from toolbar_symbols import (
 from ui_theme import palette
 
 FONT = "Segoe UI"
-
-SCHEME_TOOLS = [
-    "Внешняя энергосистема",
-    "Генератор",
-    "ГПУ",
-    "Трансформатор 2-обм.",
-    "Трансформатор 2-обм. расщепл.",
-    "Трансформатор 3-обм.",
-    "ВЛ",
-    "КЛ",
-    "Выключатель",
-    "Секция шин",
-    "Нагрузка",
-    "Узел",
-]
-
-LV_TOOLS = [
-    "Автоматический выключатель 1P",
-    "Автоматический выключатель 2P",
-    "Автоматический выключатель 3P",
-    "Автоматический выключатель 4P",
-    "Секционный автоматический выключатель",
-    "Рубильник",
-    "Контактор",
-    "УЗО",
-    "Дифференциальный автомат",
-    "Фазная шина",
-    "Шина N",
-    "Шина PE",
-    "Шина PEN",
-    "Кабельная линия 0,4 кВ",
-    "Нагрузка 0,4 кВ",
-    "ГРЩ",
-    "ЩСУ",
-    "ЩО",
-    "ШР",
-]
-
-LV_GROUPS = [
-    ("Защита", [
-        "Автоматический выключатель 1P",
-        "Автоматический выключатель 2P",
-        "Автоматический выключатель 3P",
-        "Автоматический выключатель 4P",
-        "Секционный автоматический выключатель",
-        "УЗО",
-        "Дифференциальный автомат",
-    ]),
-    ("Коммутация", ["Рубильник", "Контактор"]),
-    ("Шины", ["Фазная шина", "Шина N", "Шина PE", "Шина PEN"]),
-    ("Распределение", [
-        "Кабельная линия 0,4 кВ",
-        "Нагрузка 0,4 кВ",
-        "ГРЩ",
-        "ЩСУ",
-        "ЩО",
-        "ШР",
-    ]),
-]
-
-PLAN_GROUPS = [
-    ("Производственные объекты", [
-        "Завод", "Цех", "Компрессорная", "Насосная", "Котельная",
-        "Административный корпус", "Прочий объект",
-    ]),
-    ("Электроэнергетические объекты", [
-        "Энергосистема", "ГПП", "ТП", "РП",
-        "Собственная электростанция", "Мини-ТЭЦ", "Системная подстанция",
-    ]),
-    ("Газовая инфраструктура", [
-        "Точка подключения ПГ",
-    ]),
-    ("Связи объектов", [
-        "КЛ", "ВЛ", "Газопровод", "Технологическая связь", "Прочая связь",
-    ]),
-]
-
-MATERIAL_TOOL_ICONS = {
-    "Завод": "factory",
-    "Цех": "factory",
-    "Компрессорная": "factory",
-    "Насосная": "water-pump",
-    "Котельная": "radiator",
-    "Административный корпус": "office-building",
-    "Прочий объект": "home-city",
-    "Энергосистема": "transmission-tower-import",
-    "Внешняя энергосистема": "transmission-tower-import",
-    "ГПП": "transmission-tower",
-    "ТП": "power-plug",
-    "РП": "electric-switch",
-    "Собственная электростанция": "generator-stationary",
-    "Мини-ТЭЦ": "factory",
-    "Системная подстанция": "transmission-tower",
-    "Генератор": "generator-stationary",
-    "ГПУ": "generator-mobile",
-    "Выключатель": "electric-switch",
-    "Нагрузка": "lightning-bolt",
-    "Нагрузка 0,4 кВ": "lightning-bolt",
-    "КЛ": "cable-data",
-    "Кабельная линия 0,4 кВ": "cable-data",
-    "ВЛ": "transmission-tower",
-    "Газопровод": "pipe",
-    "Технологическая связь": "link-variant",
-    "Прочая связь": "link-variant",
-}
-
 
 class App:
     def __init__(self, root):
@@ -135,11 +30,8 @@ class App:
         self.view = "plan"
         self._inside = None
         self._loose = {"items": [], "wires": []}
-        self._lv_open = False
-        self._tool_buttons = {}
         self._ribbon_tiles = {}
         self._active_tool = None
-        self._toolbar_symbol_color = None
         self._selection_mode = True
         self._history = []
         self._history_index = -1
@@ -230,8 +122,6 @@ class App:
         self._menu()
         if hasattr(self, "_panes"):
             self._panes.configure(bg=self.colors["divider"])
-        if hasattr(self, "_palette_canvas"):
-            self._palette_canvas.configure(bg=self.colors["surface"])
         self.plan.set_theme(self.colors)
         self.scheme.set_theme(self.colors)
         self._render_ribbon()
@@ -344,24 +234,8 @@ class App:
         self._tooltip(button, tip)
         return button
 
-    def set_toolbar_symbol_color(self, color=None):
-        """Set one shared color for all inactive vector toolbar previews.
-
-        ``None`` restores the neutral color appropriate for the active theme.
-        This small public entry point leaves room for a future palette setting
-        without duplicating a color on every individual icon.
-        """
-        self._toolbar_symbol_color = color
-        self._refresh_ribbon_tiles()
-
-    def set_scheme_symbol_color(self, color=None):
-        """Compatibility alias for callers that color schematic UGO only."""
-        self.set_toolbar_symbol_color(color)
-
     def _toolbar_symbol_ink(self, active=False):
-        if active:
-            return self.colors["accent"]
-        return self._toolbar_symbol_color or self.colors["symbol"]
+        return self.colors["accent"] if active else self.colors["symbol"]
 
     def _paint_vector_symbol_tile(self, tile, name, active=False, hover=False):
         tile.delete("ugo")
@@ -400,7 +274,6 @@ class App:
         ttk.Separator(bar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=2)
         self._ribbon_host = ttk.Frame(bar, style="Toolbar.TFrame")
         self._ribbon_host.pack(side=tk.LEFT, fill=tk.Y)
-        self._ribbon_tab = "plan"
         self._back = ttk.Button(self._ribbon_host, text="←", style="Ribbon.TButton", command=self._show_plan)
         self._render_ribbon()
 
@@ -421,12 +294,6 @@ class App:
         )
         group._caption.pack(side=tk.BOTTOM, fill=tk.X)
         return group
-
-    def _restyle_ribbon_group(self, group):
-        c = self.colors
-        group.configure(bg=c["surface"], highlightbackground=c["divider"], highlightcolor=c["divider"])
-        group._tools.configure(bg=c["surface"])
-        group._caption.configure(bg=c["surface"], fg=c["muted"])
 
     def _tool_tile(self, parent, name, command, is_link=False):
         c = self.colors
@@ -453,13 +320,7 @@ class App:
                 fill=c["accent_soft"] if active else c["surface"],
                 outline="", tags="tile_bg",
             )
-            material_name = MATERIAL_TOOL_ICONS.get(name)
-            if material_name:
-                material_icon = MaterialIcon(material_name, size=20, color=ink)
-                tile.create_image(14, 14, image=material_icon.image)
-                tile._material_icon = material_icon
-                self._icon_refs.append(material_icon)
-            elif is_link or name in ("КЛ", "ВЛ", "Газопровод", "Технологическая связь", "Прочая связь"):
+            if is_link:
                 tile.create_line(5, 23, 23, 5, fill=ink, width=2, dash=(3, 2) if name == "ВЛ" else ())
             else:
                 tile.create_rectangle(5, 6, 23, 22, outline=ink, width=2)
@@ -504,9 +365,7 @@ class App:
             )
             tile.itemconfigure("tile_bg", fill=background)
 
-    def _render_ribbon(self, tab=None):
-        if tab:
-            self._ribbon_tab = tab
+    def _render_ribbon(self):
         for child in self._ribbon_host.winfo_children():
             child.pack_forget()
             if child is not self._back:
@@ -515,20 +374,21 @@ class App:
         for key, button in self._mode_buttons.items():
             button.configure(style="ActiveTab.TButton" if key == self.view else "Tab.TButton")
         if self.view == "scheme":
-            self._ribbon_group(self._ribbon_host, "Источники", [(n, lambda x=n: self._pick_tool(x, False), False) for n in SCHEME_TOOLS[:3]])
-            self._ribbon_group(self._ribbon_host, "Оборудование", [(n, lambda x=n: self._pick_tool(x, False), False) for n in SCHEME_TOOLS[3:6]])
-            self._ribbon_group(self._ribbon_host, "Соединения", [(n, lambda x=n: self._pick_tool(x, False), n in ("ВЛ", "КЛ")) for n in SCHEME_TOOLS[6:10]])
-            self._ribbon_group(self._ribbon_host, "Нагрузка", [(n, lambda x=n: self._pick_tool(x, False), False) for n in SCHEME_TOOLS[10:]])
-            for title, names in LV_GROUPS:
+            for title, names, is_link in SCHEME_TOOL_GROUPS:
                 self._ribbon_group(
                     self._ribbon_host,
                     title,
-                    [(n, lambda x=n: self._pick_tool(x, False), n == "Кабельная линия 0,4 кВ") for n in names],
+                    [(name, lambda x=name, link=is_link: self._pick_tool(x, link), is_link) for name in names],
                 )
         else:
-            self._ribbon_group(self._ribbon_host, "Объекты", [(n, lambda x=n: self._pick_tool(x, False), False) for n in PLAN_GROUPS[0][1]])
-            self._ribbon_group(self._ribbon_host, "Энергетика", [(n, lambda x=n: self._pick_tool(x, False), False) for n in PLAN_GROUPS[1][1]])
-            self._ribbon_group(self._ribbon_host, "Связи", [(n, lambda x=n: self._pick_tool(x, True), True) for n in PLAN_GROUPS[3][1]])
+            for title, names, is_link, visible in PLAN_TOOL_GROUPS:
+                if not visible:
+                    continue
+                self._ribbon_group(
+                    self._ribbon_host,
+                    title,
+                    [(name, lambda x=name, link=is_link: self._pick_tool(x, link), is_link) for name in names],
+                )
         if self.view == "scheme" and self._inside is not None:
             self._back.pack(side=tk.RIGHT, padx=(4, 0), pady=4)
 
@@ -616,73 +476,10 @@ class App:
         ttk.Button(box, text="Применить", style="Pick.TButton", command=self._apply_props).pack(fill=tk.X, pady=(12, 0))
         self._props_visible = True
 
-    def _scroller(self, parent):
-        holder = ttk.Frame(parent)
-        holder.pack(fill=tk.BOTH, expand=True)
-        canvas = tk.Canvas(holder, bg=self.colors["surface"], highlightthickness=0, width=220)
-        scroll = ttk.Scrollbar(holder, orient=tk.VERTICAL, command=canvas.yview)
-        inner = ttk.Frame(canvas)
-        inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        win = canvas.create_window((0, 0), window=inner, anchor=tk.NW)
-        canvas.configure(yscrollcommand=scroll.set)
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scroll.pack(side=tk.RIGHT, fill=tk.Y)
-
-        def _fit(event):
-            canvas.itemconfigure(win, width=event.width)
-
-        canvas.bind("<Configure>", _fit)
-        self._palette_canvas = canvas
-        return inner
-
-    def _fill_palette(self):
-        # The compact icon palette now lives in the top ribbon.
-        if not hasattr(self, "_palette_host"):
-            return
-        for child in self._palette_host.winfo_children():
-            child.destroy()
-        self._tool_buttons.clear()
-        if self.view == "scheme":
-            frame = ttk.LabelFrame(self._palette_host, text="Элементы схемы", padding=6)
-            frame.pack(fill=tk.X, padx=6, pady=6)
-            for name in SCHEME_TOOLS:
-                self._tool_btn(frame, name, False)
-            toggle = ttk.Button(frame, text="► Элементы до 1 кВ", command=self._toggle_lv)
-            toggle.pack(fill=tk.X, pady=(6, 2))
-            self._lv_toggle = toggle
-            self._lv_frame = ttk.Frame(frame)
-            for name in LV_TOOLS:
-                self._tool_btn(self._lv_frame, name, True)
-            if self._lv_open:
-                self._lv_toggle.configure(text="▼ Элементы до 1 кВ")
-                self._lv_frame.pack(fill=tk.X)
-            return
-        for title, names in PLAN_GROUPS:
-            frame = ttk.LabelFrame(self._palette_host, text=title, padding=6)
-            frame.pack(fill=tk.X, padx=6, pady=(6, 0))
-            links = title == "Связи объектов"
-            for name in names:
-                self._tool_btn(frame, name, links)
-
-    def _tool_btn(self, parent, name, is_link):
-        icon = "⌁" if is_link else "◈"
-        btn = ttk.Button(parent, text="%s  %s" % (icon, name), command=lambda n=name, link=is_link: self._pick_tool(n, link))
-        btn.pack(fill=tk.X, pady=1)
-        self._tooltip(btn, "Выбрать инструмент: %s" % name)
-        self._tool_buttons[name] = btn
-        if name == self._active_tool:
-            btn.configure(style="Pick.TButton")
-
-    def _toggle_lv(self):
-        self._lv_open = not self._lv_open
-        self._fill_palette()
-
     def _pick_tool(self, name, is_link):
         self._active_tool = name
         self._selection_mode = False
         self._select_button.configure(style="Tab.TButton")
-        for key, btn in self._tool_buttons.items():
-            btn.configure(style="Pick.TButton" if key == name else "TButton")
         if self.view == "scheme":
             self.scheme.set_tool(name)
         elif is_link:
@@ -725,13 +522,11 @@ class App:
         self._active_tool = None
         self._selection_mode = True
         self._select_button.configure(style="ActiveTab.TButton")
-        self._fill_palette()
         self._show_selection(sheet.current())
         if name == "scheme":
             self.scheme.redraw()
         else:
             self.plan.redraw()
-        self._ribbon_tab = name
         self._render_ribbon()
 
     def _scheme_status(self):
@@ -801,8 +596,8 @@ class App:
 
     def _ask_object(self):
         kinds = []
-        for title, names in PLAN_GROUPS:
-            if title == "Связи объектов":
+        for _title, names, is_link, _visible in PLAN_TOOL_GROUPS:
+            if is_link:
                 continue
             kinds.extend(names)
         win = tk.Toplevel(self.root)
@@ -852,8 +647,6 @@ class App:
         self._active_tool = None
         self._selection_mode = False
         self._select_button.configure(style="Tab.TButton")
-        for btn in self._tool_buttons.values():
-            btn.configure(style="TButton")
         self.scheme.set_connect(True)
 
     def _rotate(self):
@@ -877,8 +670,6 @@ class App:
         self._active_tool = None
         self._selection_mode = True
         self._select_button.configure(style="ActiveTab.TButton")
-        for btn in self._tool_buttons.values():
-            btn.configure(style="TButton")
         if hasattr(self, "_ribbon_host"):
             self._refresh_ribbon_tiles()
         self._set_status("Готово")

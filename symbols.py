@@ -65,12 +65,15 @@ AV_OL_TICK_MM = 1.8
 AV_OL_TRIP_HALF_MM = 1.2
 AV_OL_CONTACT_D_MM = 1.2
 
-COLOR = "#000000"
+from ui_theme import LIGHT
+
+
+COLOR = LIGHT["text"]
 FONT_SYMBOL = ("Arial", 8, "bold")
 FONT_LABEL = ("Arial", 8)
 FONT_SMALL = ("Arial", 7)
-SELECTION_COLOR = "#5780B2"
-HANDLE_COLOR = "#5780B2"
+SELECTION_COLOR = LIGHT["selection"]
+HANDLE_COLOR = LIGHT["selection"]
 HANDLE_SIZE = 5
 
 

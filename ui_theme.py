@@ -17,6 +17,7 @@ LIGHT = {
     "accent_text": "#ffffff",
     "danger": "#dc2626",
     "selection": "#5780B2",
+    "site_marker": "#fef3c7",
 }
 
 DARK = {
@@ -36,8 +37,20 @@ DARK = {
     "accent_text": "#ffffff",
     "danger": "#ff7676",
     "selection": "#77B0F5",
+    "site_marker": "#62501f",
 }
 
 
 def palette(name):
     return DARK if name == "dark" else LIGHT
+
+
+def plan_link_styles(colors):
+    """Return plan-link colors from theme tokens instead of view-local hexes."""
+    return {
+        "КЛ": (colors["accent"], ()),
+        "ВЛ": (colors["muted"], (6, 3)),
+        "Газопровод": (colors["text"], (2, 2)),
+        "Технологическая связь": (colors["muted"], (4, 2)),
+        "Прочая связь": (colors["border"], (1, 2)),
+    }

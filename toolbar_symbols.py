@@ -4,28 +4,13 @@ The drawings use only Canvas primitives.  There are no bitmap assets or filled
 tile backgrounds, so a symbol stays sharp and follows the current UI palette.
 """
 
+from ugo_model import PLAN_TOOL_NAMES, SCHEME_TOOL_NAMES
+
 TILE = 30
 STROKE = 1.6
 
-SCHEME_SYMBOLS = frozenset({
-    "Внешняя энергосистема", "Генератор", "ГПУ",
-    "Трансформатор 2-обм.", "Трансформатор 2-обм. расщепл.",
-    "Трансформатор 3-обм.", "ВЛ", "КЛ", "Выключатель", "Секция шин",
-    "Нагрузка", "Узел", "Автоматический выключатель 1P",
-    "Автоматический выключатель 2P", "Автоматический выключатель 3P",
-    "Автоматический выключатель 4P", "Секционный автоматический выключатель",
-    "Рубильник", "Контактор", "УЗО", "Дифференциальный автомат",
-    "Фазная шина", "Шина N", "Шина PE", "Шина PEN",
-    "Кабельная линия 0,4 кВ", "Нагрузка 0,4 кВ", "ГРЩ", "ЩСУ", "ЩО", "ШР",
-})
-
-PLAN_SYMBOLS = frozenset({
-    "Завод", "Цех", "Компрессорная", "Насосная", "Котельная",
-    "Административный корпус", "Прочий объект", "Энергосистема", "ГПП",
-    "ТП", "РП", "Собственная электростанция", "Мини-ТЭЦ",
-    "Системная подстанция", "КЛ", "ВЛ", "Газопровод",
-    "Технологическая связь", "Прочая связь",
-})
+SCHEME_SYMBOLS = frozenset(SCHEME_TOOL_NAMES)
+PLAN_SYMBOLS = frozenset(PLAN_TOOL_NAMES)
 
 
 def supports_toolbar_symbol(name):
@@ -205,6 +190,20 @@ def _power_grid(canvas, color, tag):
     _line(canvas, (6, 25, 23, 25), color, tag, width=1.2)
 
 
+def _external_power_system(canvas, color, tag):
+    """Scheme source: incoming three-phase utility supply through a pylon."""
+    # Three conductors on the left make the external source distinct from a
+    # generator, while the bottom stub keeps its reading as a scheme source.
+    for y in (8, 14, 20):
+        _line(canvas, (3, y, 9, y), color, tag, width=1.1)
+        _dot(canvas, 9, y, color, tag, radius=1.0)
+    _line(canvas, (16, 3, 10, 23, 23, 23, 16, 3), color, tag)
+    _line(canvas, (12, 9, 21, 9), color, tag, width=1.2)
+    _line(canvas, (11, 15, 22, 15), color, tag, width=1.2)
+    _line(canvas, (10, 23, 23, 23), color, tag, width=1.2)
+    _line(canvas, (16, 23, 16, 27), color, tag, width=1.3)
+
+
 def _main_substation(canvas, color, tag):
     """GPP: HV bus, transformer and LV distribution bus in one silhouette."""
     # High-voltage incoming bus.
@@ -334,7 +333,7 @@ def draw_toolbar_symbol(canvas, name, color, tag="ugo"):
         return False
 
     if name == "Внешняя энергосистема":
-        _power_grid(canvas, color, tag)
+        _external_power_system(canvas, color, tag)
     elif name in ("Генератор", "ГПУ"):
         _oval(canvas, (6, 6, 23, 23), color, tag)
         _text(canvas, 14.5, 14.5, "G", color, tag, size=9)

@@ -5,6 +5,48 @@ ROUTE_STYLE_HV = "hv"
 ROUTE_STYLE_VH = "vh"
 ROUTE_STYLES = (ROUTE_STYLE_AUTO, ROUTE_STYLE_HV, ROUTE_STYLE_VH)
 
+# One catalogue for the command ribbon and compact UGO previews.  The last
+# flag controls visibility in the compact Plan ribbon; gas infrastructure is
+# still available when creating an object from the project commands.
+PLAN_TOOL_GROUPS = (
+    ("Объекты", (
+        "Завод", "Цех", "Компрессорная", "Насосная", "Котельная",
+        "Административный корпус", "Прочий объект",
+    ), False, True),
+    ("Энергетика", (
+        "Энергосистема", "ГПП", "ТП", "РП",
+        "Собственная электростанция", "Мини-ТЭЦ", "Системная подстанция",
+    ), False, True),
+    ("Газовая инфраструктура", ("Точка подключения ПГ",), False, False),
+    ("Связи", ("КЛ", "ВЛ", "Газопровод", "Технологическая связь", "Прочая связь"), True, True),
+)
+
+SCHEME_TOOL_GROUPS = (
+    ("Источники", ("Внешняя энергосистема", "Генератор", "ГПУ"), False),
+    ("Оборудование", (
+        "Трансформатор 2-обм.", "Трансформатор 2-обм. расщепл.", "Трансформатор 3-обм.",
+    ), False),
+    ("Соединения", ("ВЛ", "КЛ", "Выключатель", "Секция шин"), False),
+    ("Нагрузка", ("Нагрузка", "Узел"), False),
+    ("Защита", (
+        "Автоматический выключатель 1P", "Автоматический выключатель 2P",
+        "Автоматический выключатель 3P", "Автоматический выключатель 4P",
+        "Секционный автоматический выключатель", "УЗО", "Дифференциальный автомат",
+    ), False),
+    ("Коммутация", ("Рубильник", "Контактор"), False),
+    ("Шины", ("Фазная шина", "Шина N", "Шина PE", "Шина PEN"), False),
+    ("Распределение", ("Кабельная линия 0,4 кВ", "Нагрузка 0,4 кВ", "ГРЩ", "ЩСУ", "ЩО", "ШР"), False),
+)
+
+
+def tool_names(groups):
+    """Return a flat, ordered tuple of tool names from a catalogue."""
+    return tuple(name for group in groups for name in group[1])
+
+
+PLAN_TOOL_NAMES = tool_names(PLAN_TOOL_GROUPS)
+SCHEME_TOOL_NAMES = tool_names(SCHEME_TOOL_GROUPS)
+
 
 class PowerElement:
     def __init__(self, eid, name, element_type, x, y, rotation=0, **kw):
